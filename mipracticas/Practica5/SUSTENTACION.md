@@ -1,10 +1,14 @@
 # Guía de Sustentación Rápida — Práctica 5: Servidores Web Seguros con Apache y Nginx (SSL/TLS)
 
-Este documento sirve como instrumento directo de apoyo para la sustentación del laboratorio técnico ante el docente o evaluador. Contiene la explicación concisa de la topología y arquitectura, los archivos clave a proyectar con sus comandos limpios de terminal, el guion técnico justificativo y la batería completa de pruebas de verificación en tiempo real.
+Este documento sirve como instrumento directo de apoyo para la sustentación del laboratorio técnico ante el docente o evaluador. Está estructurado rigurosamente en **Paso 0** (preparación, arquitectura, certificados y archivos clave), **Paso 1** (demostración de Apache seguro) y **Paso 2** (instalación y demostración de Nginx seguro), concluyendo con el banco de preguntas frecuentes de defensa.
 
 ---
 
-## 1. Resumen de Arquitectura y Roles
+## Paso 0: Preparación del Entorno, Arquitectura y Material Criptográfico (Archivos y Certificados)
+
+En esta fase se sustenta la infraestructura base, el estándar X.509, las directivas de configuración de los servidores y el aseguramiento del material criptográfico.
+
+### 0.1 Resumen de Arquitectura, Topología y Roles
 
 | Nodo | IP Privada | Servicio Principal | Puertos Escuchando | Rol Técnico y Criptográfico |
 | :--- | :--- | :--- | :--- | :--- |
@@ -17,12 +21,31 @@ Este documento sirve como instrumento directo de apoyo para la sustentación del
 
 ---
 
-## 2. Archivos Clave a Mostrar y Guion Técnico
+### 0.2 Certificados Digitales X.509 y Protección de Claves Privadas
 
-Ejecuta estos comandos en la terminal durante la sustentación para proyectar de forma limpia cada configuración y emplea el guion sugerido para justificar las decisiones técnicas ante el evaluador.
+#### A. Inspección del Certificado Digital X.509 Autofirmado
+* **Ubicación:** `servidor` (`/etc/ssl/certs/apache-selfsigned.crt`)
+* **Comando para mostrar:**
+  ```bash
+  openssl x509 -in /etc/ssl/certs/apache-selfsigned.crt -noout -text | grep -E "(Issuer:|Subject:|Not Before|Not After|Public Key Algorithm|RSA Public-Key)" -A 1
+  ```
+* **Guion Técnico (¿Qué decir?):**
+  > *"Aquí inspeccionamos el certificado digital bajo el estándar ITU-T X.509 generado con OpenSSL. Como se observa en la salida, el `Issuer` y el `Subject` son idénticos (`CN = server.servicios.com`), confirmando que es un certificado autofirmado (Self-Signed) con algoritmo de clave pública RSA de 2048 bits y una vigencia exacta de 365 días."*
 
-### Archivo 1: Configuración del Virtual Host Apache SSL
+#### B. Permisos de Seguridad de la Clave Privada (Menor Privilegio)
+* **Ubicación:** `servidor` (`/etc/ssl/private/apache-selfsigned.key`)
+* **Comando para mostrar:**
+  ```bash
+  sudo ls -la /etc/ssl/private/apache-selfsigned.key
+  ```
+* **Guion Técnico (¿Qué decir?):**
+  > *"Por principio de menor privilegio y seguridad criptográfica, la clave privada generada con el flag `-nodes` tiene permisos estrictos `600` (`-rw-------`) perteneciendo exclusivamente al usuario `root`. Esto previene que usuarios no privilegiados del sistema operativo puedan extraer el material criptográfico con el que se descifra el tráfico de la sesión."*
 
+---
+
+### 0.3 Archivos de Configuración Base y Páginas de Inicio
+
+#### A. Configuración del Virtual Host Apache SSL
 * **Ubicación:** `servidor` (`/etc/apache2/sites-available/servicios.com.conf`)
 * **Comando para mostrar limpiamente:**
   ```bash
@@ -31,46 +54,7 @@ Ejecuta estos comandos en la terminal durante la sustentación para proyectar de
 * **Guion Técnico (¿Qué decir?):**
   > *"En este archivo definimos dos bloques de VirtualHost. El primero escucha en el puerto seguro `443` con `SSLEngine on`, asociando el certificado digital público en `/etc/ssl/certs/apache-selfsigned.crt` y la clave privada en `/etc/ssl/private/apache-selfsigned.key`. El segundo bloque atiende en el puerto `80` para tráfico estándar, garantizando la compatibilidad HTTP."*
 
----
-
-### Archivo 2: Certificado Digital X.509 Autofirmado
-
-* **Ubicación:** `servidor` (`/etc/ssl/certs/apache-selfsigned.crt`)
-* **Comando para mostrar:**
-  ```bash
-  openssl x509 -in /etc/ssl/certs/apache-selfsigned.crt -noout -text | grep -E "(Issuer:|Subject:|Not Before|Not After|Public Key Algorithm|RSA Public-Key)" -A 1
-  ```
-* **Guion Técnico (¿Qué decir?):**
-  > *"Aquí inspeccionamos el certificado digital bajo el estándar ITU-T X.509 generado con OpenSSL. Como se observa en la salida, el `Issuer` y el `Subject` son idénticos, confirmando que es un certificado autofirmado (Self-Signed) con algoritmo de clave pública RSA de 2048 bits y una vigencia exacta de 365 días."*
-
----
-
-### Archivo 3: Permisos de Seguridad de la Clave Privada
-
-* **Ubicación:** `servidor` (`/etc/ssl/private/apache-selfsigned.key`)
-* **Comando para mostrar:**
-  ```bash
-  ls -la /etc/ssl/private/apache-selfsigned.key
-  ```
-* **Guion Técnico (¿Qué decir?):**
-  > *"Por principio de menor privilegio y seguridad criptográfica, la clave privada generada con el flag `-nodes` tiene permisos estrictos `600` (`-rw-------`) perteneciendo exclusivamente al usuario `root`. Esto previene que usuarios no privilegiados del sistema operativo puedan extraer el material criptográfico con el que se descifra el tráfico de la sesión."*
-
----
-
-### Archivo 4: Configuración del Bloque de Servidor SSL en Nginx (Ejercicio 2)
-
-* **Ubicación:** `servidor2` (`/etc/nginx/sites-available/nginx-ssl.conf`)
-* **Comando para mostrar:**
-  ```bash
-  cat /etc/nginx/sites-available/nginx-ssl.conf
-  ```
-* **Guion Técnico (¿Qué decir?):**
-  > *"Para resolver el requerimiento de Nginx seguro, configuramos una directiva `listen 443 ssl`, habilitando protocolos modernos `TLSv1.2` y `TLSv1.3` junto con el cifrado de alta seguridad. Nginx gestiona el canal seguro de forma nativa en su arquitectura asíncrona no bloqueante sin requerir módulos externos como ocurre en Apache."*
-
----
-
-### Archivo 5: Página Web de Inicio Segura
-
+#### B. Página Web de Inicio Segura de Apache
 * **Ubicación:** `servidor` (`/var/www/html/index.html`)
 * **Comando para mostrar:**
   ```bash
@@ -81,11 +65,11 @@ Ejecuta estos comandos en la terminal durante la sustentación para proyectar de
 
 ---
 
-## 3. Batería de Pruebas de Verificación en Vivo
+## Paso 1: Demostración del Funcionamiento del Servicio Web Seguro en Apache (Ejercicio 1)
 
-Ejecuta estas pruebas en orden frente al profesor para comprobar el funcionamiento end-to-end de los servicios web seguros.
+En esta fase se demuestra al evaluador que el servidor web Apache se encuentra operativo, con el módulo SSL cargado, escuchando en los puertos respectivos y negociando correctamente el protocolo HTTPS de forma local y remota.
 
-### Bloque A: Pruebas en `servidor` (Servidor Apache SSL)
+### 1.1 Verificación del Servicio, Módulos y Puertos en el Servidor (`servidor`)
 
 1. **Verificar estado activo del servicio Apache:**
    ```bash
@@ -99,7 +83,7 @@ Ejecuta estas pruebas en orden frente al profesor para comprobar el funcionamien
    ```
    * **Resultado esperado:** Sockets en estado `LISTEN` en `:::80` y `:::443` pertenecientes al proceso `apache2`.
 
-3. **Verificar que el módulo `mod_ssl` está cargado:**
+3. **Verificar que el módulo `mod_ssl` está cargado en runtime:**
    ```bash
    sudo apache2ctl -M | grep ssl
    ```
@@ -111,13 +95,17 @@ Ejecuta estas pruebas en orden frente al profesor para comprobar el funcionamien
    ```
    * **Resultado esperado:** `Syntax OK`.
 
+---
+
+### 1.2 Validación Local del Canal Seguro y Handshake Criptográfico
+
 5. **Prueba local HTTPS e inspección de cabeceras:**
    ```bash
    curl -kIv https://localhost
    ```
-   * **Resultado esperado:** Handshake TLS exitoso, código `HTTP/1.1 200 OK`, cabecera `Server: Apache/...` y contenido HTML.
+   * **Resultado esperado:** Handshake TLS exitoso, código `HTTP/1.1 200 OK`, cabecera `Server: Apache/...` y cuerpo HTML devuelto.
 
-6. **Comprobación del Handshake Criptográfico con OpenSSL s_client:**
+6. **Comprobación del Handshake Criptográfico con OpenSSL `s_client`:**
    ```bash
    echo | openssl s_client -connect localhost:443 -brief
    ```
@@ -125,35 +113,7 @@ Ejecuta estas pruebas en orden frente al profesor para comprobar el funcionamien
 
 ---
 
-### Bloque B: Pruebas en `servidor2` (Servidor Nginx SSL - Ejercicio 2)
-
-1. **Verificar estado del servicio Nginx:**
-   ```bash
-   sudo systemctl status nginx --no-pager
-   ```
-   * **Resultado esperado:** Estado en verde `active (running)`.
-
-2. **Comprobar puerto 443 en escucha en Nginx:**
-   ```bash
-   sudo ss -tlnp | grep :443
-   ```
-   * **Resultado esperado:** Socket en estado `LISTEN` en `0.0.0.0:443` perteneciente al proceso `nginx`.
-
-3. **Validar sintaxis del archivo de configuración:**
-   ```bash
-   sudo nginx -t
-   ```
-   * **Resultado esperado:** `syntax is ok` y `test is successful`.
-
-4. **Prueba local HTTPS contra Nginx:**
-   ```bash
-   curl -kIv https://localhost
-   ```
-   * **Resultado esperado:** `HTTP/1.1 200 OK` con cabecera `Server: nginx/...`.
-
----
-
-### Bloque C: Pruebas desde el Host Anfitrión (Windows)
+### 1.3 Demostración Remota desde el Host Anfitrión (Windows)
 
 1. **Comprobar accesibilidad de red en el puerto 443 de Apache:**
    ```powershell
@@ -165,21 +125,92 @@ Ejecuta estas pruebas en orden frente al profesor para comprobar el funcionamien
    ```powershell
    curl.exe -k -i https://192.168.50.3
    ```
-   * **Resultado esperado:** Cabecera `HTTP/1.1 200 OK` y el cuerpo HTML servido por Apache.
+   * **Resultado esperado:** Cabecera `HTTP/1.1 200 OK` y el cuerpo HTML personalizado servido por Apache.
 
-3. **Petición HTTPS hacia Nginx (`servidor2`):**
-   ```powershell
-   curl.exe -k -i https://192.168.50.2
-   ```
-   * **Resultado esperado:** Cabecera `HTTP/1.1 200 OK` servida por Nginx.
-
-4. **Visualización y comprobación en Navegador Web:**
+3. **Visualización y comprobación en Navegador Web:**
    * Abrir `https://192.168.50.3` en Chrome, Edge o Firefox.
-   * **Resultado esperado:** Se despliega la advertencia esperada de certificado autofirmado (`NET::ERR_CERT_AUTHORITY_INVALID`). Al hacer clic en *"Avanzado $\rightarrow$ Continuar a 192.168.50.3"*, carga la página web con el candado rojo/gris. Al pulsar en el candado $\rightarrow$ *"El certificado no es válido"*, se observa la entidad emisora `server.servicios.com` generada en la práctica.
+   * **Resultado esperado:** Se despliega la advertencia esperada de certificado autofirmado (`NET::ERR_CERT_AUTHORITY_INVALID`). Al hacer clic en *"Avanzado $\rightarrow$ Continuar a 192.168.50.3"*, carga la página web con el candado de seguridad. Al pulsar en el candado $\rightarrow$ *"El certificado no es válido"*, se observa la entidad emisora `server.servicios.com` generada en la práctica.
 
 ---
 
-## 4. Preguntas Frecuentes del Evaluador (Cheat Sheet)
+## Paso 2: Instalación, Configuración y Demostración del Servicio Web Seguro en Nginx (Ejercicio 2)
+
+En esta fase se demuestra la instalación, configuración del bloque de servidor SSL nativo y el funcionamiento integral de Nginx en `servidor2` (o puerto alternativo), contrastando su arquitectura frente a Apache.
+
+### 2.1 Instalación y Material Criptográfico de Nginx
+
+Si el evaluador solicita revisar el procedimiento de despliegue en `servidor2`:
+```bash
+# Instalación del servidor web y utilidades criptográficas
+sudo apt update && sudo apt install -y nginx openssl
+
+# Generación del par de claves y certificado para Nginx
+sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+  -keyout /etc/ssl/private/nginx-selfsigned.key \
+  -out /etc/ssl/certs/nginx-selfsigned.crt \
+  -subj "/C=CO/ST=Valle/L=Cali/O=UAO/OU=ServiciosTelematicos/CN=www.servicios-nginx.com"
+
+# Aseguramiento de permisos
+sudo chmod 600 /etc/ssl/private/nginx-selfsigned.key
+```
+
+---
+
+### 2.2 Archivo de Configuración del Bloque de Servidor SSL en Nginx
+
+* **Ubicación:** `servidor2` (`/etc/nginx/sites-available/nginx-ssl.conf`)
+* **Comando para mostrar:**
+  ```bash
+  cat /etc/nginx/sites-available/nginx-ssl.conf
+  ```
+* **Guion Técnico (¿Qué decir?):**
+  > *"Para resolver el requerimiento de Nginx seguro, configuramos una directiva `listen 443 ssl http2`, habilitando protocolos modernos `TLSv1.2` y `TLSv1.3` junto con cifrado de alta seguridad. Adicionalmente, se configuró un bloque en el puerto 80 que realiza una redirección 301 permanente hacia HTTPS. Nginx gestiona el canal seguro de forma nativa en su arquitectura asíncrona no bloqueante sin requerir módulos externos como ocurre en Apache."*
+
+---
+
+### 2.3 Batería de Pruebas y Validación en `servidor2`
+
+1. **Validar sintaxis del archivo de configuración:**
+   ```bash
+   sudo nginx -t
+   ```
+   * **Resultado esperado:** `syntax is ok` y `test is successful`.
+
+2. **Verificar estado del servicio Nginx:**
+   ```bash
+   sudo systemctl status nginx --no-pager
+   ```
+   * **Resultado esperado:** Estado en verde `active (running)`.
+
+3. **Comprobar puerto 443 en escucha en Nginx:**
+   ```bash
+   sudo ss -tlnp | grep :443
+   ```
+   * **Resultado esperado:** Socket en estado `LISTEN` en `0.0.0.0:443` perteneciente al proceso `nginx`.
+
+4. **Prueba local HTTPS contra Nginx:**
+   ```bash
+   curl -kIv https://localhost
+   ```
+   * **Resultado esperado:** `HTTP/1.1 200 OK` (o HTTP/2) con cabecera `Server: nginx/...`.
+
+---
+
+### 2.4 Demostración Remota desde el Host Anfitrión (Windows)
+
+1. **Petición HTTPS hacia Nginx (`servidor2`) con cURL:**
+   ```powershell
+   curl.exe -k -i https://192.168.50.2
+   ```
+   * **Resultado esperado:** Cabecera `HTTP/2 200` (o `HTTP/1.1 200 OK`) con cabecera `server: nginx/1.18.0` y cuerpo HTML correspondiente a la página segura de Nginx.
+
+2. **Visualización y comprobación en Navegador Web:**
+   * Abrir `https://192.168.50.2` en el navegador.
+   * **Resultado esperado:** Despliegue de la página *"Servidor Web Nginx Seguro"* bajo canal HTTPS, validando el cumplimiento del Ejercicio 2.
+
+---
+
+## Preguntas Frecuentes del Evaluador (Cheat Sheet)
 
 * **¿Por qué el navegador web muestra una advertencia de seguridad si el certificado es técnicamente válido?**
   * *Respuesta:* Porque es un certificado **autofirmado** (*Self-Signed*). El navegador confía únicamente en certificados cuya firma digital pertenezca a una Autoridad Certificadora (CA) preinstalada en su almacén raíz de confianza (como DigiCert, Let's Encrypt o Sectigo). Criptográficamente el túnel está cifrado y seguro, pero falta la validación de identidad por un tercero confiable.

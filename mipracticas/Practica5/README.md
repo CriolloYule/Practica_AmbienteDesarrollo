@@ -1,12 +1,12 @@
 # INFORME TÉCNICO: CONFIGURACIÓN, ADMINISTRACIÓN Y ASEGURAMIENTO DE SERVICIOS WEB SEGUROS CON APACHE Y NGINX (SSL/TLS)
 
-**Asignatura:** Ambiente de Desarrollo / Servicios Telemáticos  
-**Profesor:** Prof. Oscar Mondragón  
-**Estudiante:** Eduard Criollo Yule  
-**Correo Institucional:** `eduard.criollo@uao.edu.co`  
-**Semestre:** 9no Semestre  
-**Repositorio:** [Practica_AmbienteDesarrollo](https://github.com/CriolloYule/Practica_AmbienteDesarrollo)  
-**Directorio de la Práctica:** `mipracticas/Practica5`  
+**Asignatura:** Ambiente de Desarrollo / Servicios Telemáticos
+**Profesor:** Prof. Oscar Mondragón
+**Estudiante:** Eduard Criollo Yule
+**Correo Institucional:** `eduard.criollo@uao.edu.co`
+**Semestre:** 9no Semestre
+**Repositorio:** [Practica_AmbienteDesarrollo](https://github.com/CriolloYule/Practica_AmbienteDesarrollo)
+**Directorio de la Práctica:** `mipracticas/Practica5`
 
 ---
 
@@ -104,7 +104,7 @@ sudo bash -c 'cat << "EOF" > /var/www/html/index.html
     <h1>Servidor Web Seguro UAO</h1>
     <p>Práctica 5 - Servicios Telemáticos / Ambiente de Desarrollo</p>
     <p>Estudiante: Eduard Criollo Yule</p>
-    <p><span class="status">&#128274; Apache2 Activo y Protegido con SSL/TLS</span></p>
+    <p><span class="status">🔒 Apache2 Activo y Protegido con SSL/TLS</span></p>
   </div>
 </body>
 </html>
@@ -117,7 +117,7 @@ EOF'
 
 ![01_apache_instalacion_status.png](images/01_apache_instalacion_status.png)
 
-* **Análisis Técnico:**  
+* **Análisis Técnico:**
   La ejecución de `sudo systemctl status apache2` reporta el demonio en estado verde `active (running)`. Los subprocesos de trabajo (*worker threads*) bajo la arquitectura MPM (*Multi-Processing Module*) de Apache se encuentran asignados e interactuando con el socket de red estándar en el puerto `80/TCP`.
 
 ---
@@ -146,7 +146,7 @@ sudo openssl version
 
 ![02_openssl_verificacion.png](images/02_openssl_verificacion.png)
 
-* **Análisis Técnico:**  
+* **Análisis Técnico:**
   El comando `sudo openssl version` retorna `OpenSSL 3.0.2 15 Mar 2022` (o versión superior del repositorio oficial de Ubuntu 22.04 LTS). Esta versión incorpora soporte nativo para TLS 1.3 (RFC 8446), algoritmos criptográficos robustos basados en curvas elípticas (Ed25519, ECDSA) y compatibilidad completa con el formato ITU-T X.509 v3.
 
 ---
@@ -177,11 +177,13 @@ sudo apache2ctl -M | grep ssl
 
 ![03_apache_habilitar_mod_ssl.png](images/03_apache_habilitar_mod_ssl.png)
 
-* **Análisis Técnico:**  
+* **Análisis Técnico:**
   La ejecución de `sudo a2enmod ssl` crea los enlaces simbólicos correspondientes desde `/etc/apache2/mods-available/ssl.load` y `ssl.conf` hacia `/etc/apache2/mods-enabled/`. Posteriormente, la verificación con `sudo apache2ctl -M | grep ssl` retorna con éxito:
+
   ```text
   ssl_module (shared)
   ```
+
   Esto confirma que el motor SSL está enlazado dinámicamente en el espacio de memoria de Apache.
 
 ---
@@ -221,7 +223,7 @@ sudo chown root:root /etc/ssl/private/apache-selfsigned.key
 
 ![04_openssl_generar_certificado.png](images/04_openssl_generar_certificado.png)
 
-* **Análisis Técnico:**  
+* **Análisis Técnico:**
   OpenSSL genera el exponente público $e = 65537$ (0x10001) y calcula los factores primos de 1024 bits necesarios para estructurar la clave RSA de 2048 bits. La inspección del archivo generado `/etc/ssl/certs/apache-selfsigned.crt` con `openssl x509 -text -noout` corrobora que el `Issuer` (emisor) y el `Subject` (sujeto) son exactamente idénticos (`CN = server.servicios.com`), característica formal de un certificado autofirmado.
 
 ---
@@ -293,7 +295,7 @@ sudo ufw allow "Apache Full"
 
 ![05_apache_configtest_syntax_ok.png](images/05_apache_configtest_syntax_ok.png)
 
-* **Análisis Técnico:**  
+* **Análisis Técnico:**
   Al ejecutar `sudo a2ensite servicios.com.conf`, Apache crea el enlace simbólico en `/etc/apache2/sites-enabled/`. La ejecución subsiguiente de `sudo apache2ctl configtest` emite el mensaje `Syntax OK`. La inclusión previa de `ServerName 127.0.0.1` elimina por completo la advertencia `AH00558: Could not reliably determine the server's fully qualified domain name`. Finalmente, `sudo systemctl reload apache2` aplica las directivas criptográficas sin interrumpir conexiones activas.
 
 ---
@@ -316,6 +318,7 @@ echo | openssl s_client -connect localhost:443 -servername server.servicios.com 
 ```
 
 Desde el **Host Anfitrión Windows (PowerShell)**:
+
 ```powershell
 # Comprobar accesibilidad del socket TCP seguro
 Test-NetConnection -ComputerName 192.168.50.3 -Port 443
@@ -330,7 +333,7 @@ curl.exe -k -i https://192.168.50.3
 
 ![06_apache_curl_handshake_tls.png](images/06_apache_curl_handshake_tls.png)
 
-* **Análisis Técnico:**  
+* **Análisis Técnico:**
   La salida de cURL evidencia el intercambio de llaves mediante el saludo *Client Hello* y *Server Hello*. Se negocia con éxito una conexión cifrada sobre TLS 1.3 con la suite de cifrado `TLS_AES_256_GCM_SHA384`. El servidor entrega el certificado `CN=server.servicios.com`, respondiendo con código `HTTP/1.1 200 OK` y cabecera de servidor `Server: Apache/2.4.52 (Ubuntu)`.
 
 #### Evidencia 07: Acceso desde Navegador Web en Windows a `https://192.168.50.3`
@@ -339,12 +342,14 @@ curl.exe -k -i https://192.168.50.3
 
 ![07_apache_navegador_advertencia_ssl.png](images/07_apache_navegador_advertencia_ssl.png)
 
-* **Análisis Técnico:**  
+* **Análisis Técnico:**
   Al ingresar a `https://192.168.50.3` desde Google Chrome o Microsoft Edge, el navegador despliega la pantalla de advertencia:
+
   ```text
   La conexión no es privada
   NET::ERR_CERT_AUTHORITY_INVALID
   ```
+
   **Justificación de Seguridad:** Esta advertencia es el comportamiento esperado y normal para certificados autofirmados. El navegador realiza una comprobación de la cadena de confianza (*Trust Chain*) buscando que el certificado esté firmado por una entidad certificadora acreditada presente en el almacén de CA raíz del sistema operativo. Dado que el certificado fue generado y firmado por nosotros mismos, el navegador advierte al usuario, garantizando la confidencialidad del tráfico cifrado pero señalando la falta de validación de identidad por un tercero.
 
 #### Evidencia 08: Inspección de los Datos del Certificado Digital en el Navegador
@@ -353,8 +358,7 @@ curl.exe -k -i https://192.168.50.3
 
 ![08_apache_navegador_visor_certificado.png](images/08_apache_navegador_visor_certificado.png)
 
-* **Análisis Técnico:**  
-  Tras aceptar la excepción de seguridad y acceder al sitio, se despliega la interfaz web personalizada con el candado rojo/gris de advertencia. Al abrir el visor del certificado en el navegador, se constatan los atributos asignados:
+* **Análisis Técnico:**Tras aceptar la excepción de seguridad y acceder al sitio, se despliega la interfaz web personalizada con el candado rojo/gris de advertencia. Al abrir el visor del certificado en el navegador, se constatan los atributos asignados:
   - **Emitido para (CN):** `server.servicios.com`
   - **Emitido por (O/OU):** `UAO / ServiciosTelematicos`
   - **Validez:** Exactamente 365 días a partir de la fecha de emisión.
@@ -405,7 +409,7 @@ sudo bash -c 'cat << "EOF" > /var/www/nginx-ssl/html/index.html
     <h1>Servidor Web Nginx Seguro</h1>
     <p>Práctica 5 - Ejercicio 2 (SSL sobre Nginx)</p>
     <p>Estudiante: Eduard Criollo Yule</p>
-    <p><span class="badge">&#128274; Nginx HTTPS Operativo (TLSv1.2 / TLSv1.3)</span></p>
+    <p><span class="badge">🔒 Nginx HTTPS Operativo (TLSv1.2 / TLSv1.3)</span></p>
   </div>
 </body>
 </html>
@@ -455,7 +459,7 @@ sudo systemctl restart nginx
 
 ![09_nginx_ssl_syntax_ok.png](images/09_nginx_ssl_syntax_ok.png)
 
-* **Análisis Técnico:**  
+* **Análisis Técnico:**
   La ejecución de `sudo nginx -t` comprueba la validez del archivo de configuración, retornando `nginx: configuration file /etc/nginx/nginx.conf test is successful`. A diferencia de Apache, Nginx no requiere comandos de activación modulares independientes como `a2enmod`, ya que las librerías criptográficas de OpenSSL forman parte del núcleo compilado de Nginx. La directiva `return 301` implementa una redirección permanente estricta desde HTTP hacia HTTPS.
 
 #### Evidencia 10: Demostración Operativa de Nginx SSL con cURL y Navegador
@@ -464,30 +468,30 @@ sudo systemctl restart nginx
 
 ![10_nginx_ssl_prueba_exitosa.png](images/10_nginx_ssl_prueba_exitosa.png)
 
-* **Análisis Técnico:**  
-  Desde el Host Windows se ejecuta `curl.exe -k -i https://192.168.50.2`, obteniendo:
+* **Análisis Técnico:**Desde el Host Windows se ejecuta `curl.exe -k -i https://192.168.50.2`, obteniendo:
+
   - Cabecera: `HTTP/2 200`
   - Cabecera: `server: nginx/1.18.0 (Ubuntu)`
   - Cuerpo: Renderizado del código HTML con el título *"Servidor Web Nginx Seguro"*.
-  
+
   La prueba confirma el cumplimiento cabal del Ejercicio 2 del taller, evidenciando el soporte de HTTP/2 sobre TLS en Nginx.
 
 ---
 
 ## 4. Tabla Resumen de Evidencias e Imágenes
 
-| Número | Archivo Renombrado | Descripción de la Evidencia Técnica | Requerimiento del Taller |
-| :---: | :--- | :--- | :---: |
-| **01** | `01_apache_instalacion_status.png` | Verificación de instalación y estado activo de Apache2 | Paso 1: Instalación de Apache |
-| **02** | `02_openssl_verificacion.png` | Comprobación de instalación y versión del paquete OpenSSL | Paso 2: Instalación de OpenSSL |
-| **03** | `03_apache_habilitar_mod_ssl.png` | Habilitación de `mod_ssl` con `a2enmod` y verificación en runtime | Paso 3: Habilitar módulo SSL en Apache |
-| **04** | `04_openssl_generar_certificado.png` | Creación de par de claves RSA 2048 y certificado X.509 autofirmado | Paso 4: Generación de certificados y claves |
-| **05** | `05_apache_configtest_syntax_ok.png` | Configuración de VirtualHost seguro y prueba con `apache2ctl configtest` | Paso 5: Configuración de módulo SSL |
-| **06** | `06_apache_curl_handshake_tls.png` | Negociación TLS 1.3 y respuesta HTTP 200 mediante cURL | Ejercicio 1: Funcionamiento Apache SSL |
-| **07** | `07_apache_navegador_advertencia_ssl.png` | Despliegue de advertencia de seguridad `NET::ERR_CERT_AUTHORITY_INVALID` | Ejercicio 1: Funcionamiento Apache SSL |
-| **08** | `08_apache_navegador_visor_certificado.png` | Inspección detallada del certificado X.509 en el navegador web | Ejercicio 1: Funcionamiento Apache SSL |
-| **09** | `09_nginx_ssl_syntax_ok.png` | Configuración de server block SSL en Nginx y test sintáctico exitoso | Ejercicio 2: Servicio web seguro en Nginx |
-| **10** | `10_nginx_ssl_prueba_exitosa.png` | Validación HTTP/2 y HTTPS sobre Nginx desde el host anfitrión | Ejercicio 2: Servicio web seguro en Nginx |
+|   Número   | Archivo Renombrado                            | Descripción de la Evidencia Técnica                                      |           Requerimiento del Taller           |
+| :----------: | :-------------------------------------------- | :------------------------------------------------------------------------- | :------------------------------------------: |
+| **01** | `01_apache_instalacion_status.png`          | Verificación de instalación y estado activo de Apache2                   |        Paso 1: Instalación de Apache        |
+| **02** | `02_openssl_verificacion.png`               | Comprobación de instalación y versión del paquete OpenSSL               |       Paso 2: Instalación de OpenSSL       |
+| **03** | `03_apache_habilitar_mod_ssl.png`           | Habilitación de`mod_ssl` con `a2enmod` y verificación en runtime     |   Paso 3: Habilitar módulo SSL en Apache   |
+| **04** | `04_openssl_generar_certificado.png`        | Creación de par de claves RSA 2048 y certificado X.509 autofirmado        | Paso 4: Generación de certificados y claves |
+| **05** | `05_apache_configtest_syntax_ok.png`        | Configuración de VirtualHost seguro y prueba con`apache2ctl configtest` |    Paso 5: Configuración de módulo SSL    |
+| **06** | `06_apache_curl_handshake_tls.png`          | Negociación TLS 1.3 y respuesta HTTP 200 mediante cURL                    |    Ejercicio 1: Funcionamiento Apache SSL    |
+| **07** | `07_apache_navegador_advertencia_ssl.png`   | Despliegue de advertencia de seguridad`NET::ERR_CERT_AUTHORITY_INVALID`  |    Ejercicio 1: Funcionamiento Apache SSL    |
+| **08** | `08_apache_navegador_visor_certificado.png` | Inspección detallada del certificado X.509 en el navegador web            |    Ejercicio 1: Funcionamiento Apache SSL    |
+| **09** | `09_nginx_ssl_syntax_ok.png`                | Configuración de server block SSL en Nginx y test sintáctico exitoso     |  Ejercicio 2: Servicio web seguro en Nginx  |
+| **10** | `10_nginx_ssl_prueba_exitosa.png`           | Validación HTTP/2 y HTTPS sobre Nginx desde el host anfitrión            |  Ejercicio 2: Servicio web seguro en Nginx  |
 
 ---
 

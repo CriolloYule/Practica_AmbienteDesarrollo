@@ -1,0 +1,125 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  config.vm.boot_timeout = 600
+
+  config.vm.provider "virtualbox" do |vb|
+    vb.memory = "1024"
+    vb.cpus = 1
+  end
+
+  # =========================================================================
+  # Nodo 2: Servidor Web de Destino (Apache en 192.168.50.2)
+  # =========================================================================
+  config.vm.define :servidor2 do |servidor2|
+    servidor2.vm.box = "bento/ubuntu-22.04"
+    servidor2.vm.network :private_network, ip: "192.168.50.2"
+    servidor2.vm.hostname = "servidor2"
+
+    servidor2.vm.provision "shell", inline: <<-SHELL
+      echo "=== [servidor2] Aprovisionando Servidor Web Apache Destino ==="
+      sudo apt-get update -y
+      sudo apt-get install -y apache2
+
+      # Crear pagina de bienvenida personalizada que evidencie la redireccion
+      sudo mkdir -p /var/www/html
+      sudo bash -c 'cat << "EOF" > /var/www/html/index.html
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Servidor 2</title>
+</head>
+<body>
+  <h1>Bienvenido al Servidor 2</h1>
+</body>
+</html>
+EOF'
+      sudo systemctl restart apache2
+      sudo systemctl enable apache2
+      sudo ip route replace 192.168.50.3 dev eth1 metric 10
+      sudo ip route del 192.168.50.3 via 10.0.2.2 dev eth0 2>/dev/null || true
+      echo "=== [servidor2] Apache listo y respondiendo en 192.168.50.2:80 ==="
+    SHELL
+  end
+
+  # =========================================================================
+  # Nodo 1: Servidor Firewall UFW y Reenvio de Puertos (192.168.50.3)
+  # =========================================================================
+  config.vm.define :servidor1 do |servidor1|
+    servidor1.vm.box = "bento/ubuntu-22.04"
+    servidor1.vm.network :private_network, ip: "192.168.50.3"
+    servidor1.vm.hostname = "servidor1"
+
+    servidor1.vm.provision "shell", inline: <<-SHELL
+      echo "=== [servidor1] Aprovisionando Servidor Firewall UFW y Servicios ==="
+      sudo apt-get update -y
+      sudo apt-get install -y ufw apache2 openssl vsftpd
+
+      # 1. Asegurar servicio HTTPS local (Punto 3.2)
+      sudo a2enmod ssl
+      sudo openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+        -keyout /etc/ssl/private/apache-selfsigned.key \
+        -out /etc/ssl/certs/apache-selfsigned.crt \
+        -subj "/C=CO/ST=Valle/L=Cali/O=UAO/OU=ServiciosTelematicos/CN=servidor1.local"
+
+      sudo bash -c 'cat << "EOF" > /etc/apache2/sites-available/default-ssl.conf
+<VirtualHost *:443>
+    ServerName servidor1.local
+    DocumentRoot /var/www/html
+    SSLEngine on
+    SSLCertificateFile /etc/ssl/certs/apache-selfsigned.crt
+    SSLCertificateKeyFile /etc/ssl/private/apache-selfsigned.key
+</VirtualHost>
+EOF'
+
+      sudo bash -c 'cat << "EOF" > /var/www/html/index.html
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Servidor 1</title>
+</head>
+<body>
+  <h1>Bienvenido al Servidor 1</h1>
+</body>
+</html>
+EOF'
+      sudo a2ensite default-ssl.conf
+      # Cambiar puerto de escucha HTTP por defecto de Apache en servidor1 para no colisionar con el DNAT del puerto 80 hacia servidor2
+      sudo sed -i 's/Listen 80/Listen 8080/' /etc/apache2/ports.conf
+      sudo systemctl restart apache2
+      sudo systemctl enable apache2
+      sudo systemctl restart vsftpd
+      sudo systemctl enable vsftpd
+
+      # 2. Habilitar Reenvio de paquetes IPv4 en el Kernel de forma permanente
+      sudo sysctl -w net.ipv4.ip_forward=1
+      echo 'net.ipv4.ip_forward = 1' | sudo tee /etc/sysctl.d/99-forward.conf
+      sudo sed -i 's/#net\/ipv4\/ip_forward=1/net\/ipv4\/ip_forward=1/' /etc/ufw/sysctl.conf
+      sudo sed -i 's/DEFAULT_FORWARD_POLICY="DROP"/DEFAULT_FORWARD_POLICY="ACCEPT"/' /etc/default/ufw
+
+      # 3. Configurar NAT / Port Forwarding en /etc/ufw/before.rules si no existe
+      if ! grep -q "PREROUTING.*DNAT" /etc/ufw/before.rules; then
+        sudo sed -i '/^\*filter/i # NAT table rules\n*nat\n:PREROUTING ACCEPT [0:0]\n:POSTROUTING ACCEPT [0:0]\n-A PREROUTING -p tcp --dport 80 -j DNAT --to-destination 192.168.50.2:80\n-A POSTROUTING -d 192.168.50.2 -p tcp --dport 80 -j MASQUERADE\nCOMMIT\n' /etc/ufw/before.rules
+      fi
+
+      # 4. Establecer reglas del Firewall UFW
+      sudo ufw --force reset
+      sudo ufw default deny incoming
+      sudo ufw default allow outgoing
+      sudo ufw allow 22/tcp comment "Acceso SSH de gestion"
+      sudo ufw deny 21/tcp comment "Bloquear servicio FTP (Ejercicio 3.1)"
+      sudo ufw allow 443/tcp comment "Permitir servicio HTTPS local (Ejercicio 3.2)"
+      sudo ufw route allow proto tcp to 192.168.50.2 port 80
+      sudo ufw --force enable
+      sudo systemctl enable ufw
+
+      # 5. Limpiar posibles rutas espurias push de DHCP sobre eth0
+      sudo ip route replace 192.168.50.2 dev eth1 metric 10
+      sudo ip route del 192.168.50.3 via 10.0.2.2 dev eth0 2>/dev/null || true
+      echo "=== [servidor1] UFW configurado y activo con Port Forwarding ==="
+    SHELL
+  end
+end
